@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
+	"fmt"
 )
 
 const (
@@ -31,7 +32,13 @@ func (c *Crypto) ExportPrivateKey() string {
 	return base64.StdEncoding.EncodeToString(key)
 }
 
-//ParseKey from base64 string
+//ExportPublicKey to base64 string
+func (c *Crypto) ExportPublicKey() string {
+	key := x509.MarshalPKCS1PublicKey(&c.PrivateKey.PublicKey)
+	return base64.StdEncoding.EncodeToString(key)
+}
+
+//ParseKey parse private key from base64 string
 func ParseKey(key string) (*Crypto, error) {
 	b, err := base64.StdEncoding.DecodeString(key)
 	if err != nil {
@@ -49,8 +56,8 @@ func (c *Crypto) PublicKey() rsa.PublicKey {
 	return c.PrivateKey.PublicKey
 }
 
-//Encode message use the public key
-func (c *Crypto) Encode(message []byte) ([]byte, error) {
+//Encrypt message use the public key
+func (c *Crypto) Encrypt(message []byte) ([]byte, error) {
 	encrypted, err := rsa.EncryptPKCS1v15(rand.Reader, &c.PrivateKey.PublicKey, message)
 	if err != nil {
 		return nil, err
@@ -58,11 +65,38 @@ func (c *Crypto) Encode(message []byte) ([]byte, error) {
 	return encrypted, nil
 }
 
-//Decode message use the private key
-func (c *Crypto) Decode(message []byte) ([]byte, error) {
+//Decrypt message use the private key
+func (c *Crypto) Decrypt(message []byte) ([]byte, error) {
 	decrypted, err := rsa.DecryptPKCS1v15(rand.Reader, c.PrivateKey, message)
 	if err != nil {
 		return nil, err
 	}
 	return decrypted, nil
+}
+
+func publicKeyStringToKey(publicKey string) (*rsa.PublicKey, error) {
+	rawKey, err := base64.StdEncoding.DecodeString(publicKey)
+	if err != nil {
+		return nil, fmt.Errorf("key base64 decode failed [%s]", err)
+	}
+
+	key, err := x509.ParsePKCS1PublicKey(rawKey)
+	if err != nil {
+		return nil, fmt.Errorf("key parse failed [%s]", err)
+	}
+	return key, nil
+}
+
+//EncryptWithPublicKey encrypt message with base64-public-key-string
+func EncryptWithPublicKey(message []byte, publicKey string) ([]byte, error) {
+	key, err := publicKeyStringToKey(publicKey)
+	if err != nil {
+		return nil, err
+	}
+
+	encrypted, err := rsa.EncryptPKCS1v15(rand.Reader, key, message)
+	if err != nil {
+		return nil, fmt.Errorf("encrypt failed [%s]", err)
+	}
+	return encrypted, nil
 }

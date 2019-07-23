@@ -15,14 +15,14 @@ func TestCryptoKeyGenerate(t *testing.T) {
 	assert.NotNil(c, "Crypto should not nil")
 	message := "this is a message."
 
-	encryptMessage, err := c.Encode([]byte(message))
+	encryptMessage, err := c.Encrypt([]byte(message))
 	assert.Nil(err)
 	// fmt.Println("encrypted message: ", string(encryptMessage))
 
 	assert.NotEqual(message, encryptMessage)
 
 	//decode
-	originMessage, err := c.Decode(encryptMessage)
+	originMessage, err := c.Decrypt(encryptMessage)
 	assert.Nil(err)
 	fmt.Println("decoded message: ", string(originMessage))
 	assert.Equal(message, string(originMessage))
@@ -31,7 +31,7 @@ func TestCryptoKeyGenerate(t *testing.T) {
 	assert.NotNil(err, "wrong key length should fail")
 
 	otherKey, _ := CreateNewKey(128)
-	_, err = otherKey.Decode(encryptMessage)
+	_, err = otherKey.Decrypt(encryptMessage)
 	assert.NotNil(err, "wrong key should decode fail")
 
 	messageSizeTestKey, _ := CreateNewKey(256)
@@ -40,12 +40,33 @@ func TestCryptoKeyGenerate(t *testing.T) {
 
 	//the message size should not lt publicKeySize - 11
 	toLongMessage := strings.Repeat("1", publicKeySize-10)
-	_, err = messageSizeTestKey.Encode([]byte(toLongMessage))
+	_, err = messageSizeTestKey.Encrypt([]byte(toLongMessage))
 	assert.NotNil(err, "encrypt to long message should fail")
 
 	okSizeMessage := strings.Repeat("1", publicKeySize-11)
-	_, err = messageSizeTestKey.Encode([]byte(okSizeMessage))
+	_, err = messageSizeTestKey.Encrypt([]byte(okSizeMessage))
 	assert.Nil(err, "encrypt message should ok")
+
+	testPublicKeyEncrypt, _ := CreateNewKey(256)
+	publicKeyString := testPublicKeyEncrypt.ExportPublicKey()
+
+	encryptedMessage, err := EncryptWithPublicKey([]byte(message), publicKeyString)
+	assert.Nil(err, "encrypt with public key string should ok")
+
+	originMessage, err = testPublicKeyEncrypt.Decrypt(encryptedMessage)
+	assert.Nil(err, "decrypt message encrypt with public key string should ok")
+
+	assert.Equal([]byte(message), originMessage, "decrypted message encrypt with public key string should equal")
+
+	_, err = EncryptWithPublicKey([]byte(message), "not_base64_string")
+	assert.NotNil(err, "EncryptWithPublicKey shuild fail with not base64 string key")
+
+	_, err = EncryptWithPublicKey([]byte(message), "MTIzNA==")
+	assert.NotNil(err, "EncryptWithPublicKey shuild fail with base64-and-not-key string")
+
+	overSizeMessage := strings.Repeat("1", 100)
+	_, err = EncryptWithPublicKey([]byte(overSizeMessage), publicKeyString)
+	assert.NotNil(err, "encrypt overSizeMessage with public key string should fail")
 
 }
 
@@ -70,11 +91,11 @@ func TestImportExport(t *testing.T) {
 
 	message := "this is a message."
 
-	encryptMessage, err := c.Encode([]byte(message))
+	encryptMessage, err := c.Encrypt([]byte(message))
 	assert.Nil(err)
 	assert.NotEqual(encryptMessage, []byte(message))
 
-	originMessage, err := c.Decode(encryptMessage)
+	originMessage, err := c.Decrypt(encryptMessage)
 	assert.Nil(err)
 	assert.Equal(originMessage, []byte(message), "message should be equal after encrypt and decrypt by the same key pair")
 
