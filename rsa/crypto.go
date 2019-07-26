@@ -1,8 +1,10 @@
 package rsa
 
 import (
+	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
 	"fmt"
@@ -74,6 +76,16 @@ func (c *Crypto) Decrypt(message []byte) ([]byte, error) {
 	return decrypted, nil
 }
 
+//Sign input use sha256 hash
+func (c *Crypto) Sign(input []byte) ([]byte, error) {
+	hashed := sha256.Sum256(input)
+	signature, err := rsa.SignPKCS1v15(rand.Reader, c.PrivateKey, crypto.SHA256, hashed[:])
+	if err != nil {
+		return nil, err
+	}
+	return signature, nil
+}
+
 func publicKeyStringToKey(publicKey string) (*rsa.PublicKey, error) {
 	rawKey, err := base64.StdEncoding.DecodeString(publicKey)
 	if err != nil {
@@ -99,4 +111,14 @@ func EncryptWithPublicKey(message []byte, publicKey string) ([]byte, error) {
 		return nil, fmt.Errorf("encrypt failed [%s]", err)
 	}
 	return encrypted, nil
+}
+
+//SignVerifyWithPublicKey verify the signature signed by Sign function
+func SignVerifyWithPublicKey(input, signature []byte, publicKey string) error {
+	key, err := publicKeyStringToKey(publicKey)
+	if err != nil {
+		return err
+	}
+	hashed := sha256.Sum256(input)
+	return rsa.VerifyPKCS1v15(key, crypto.SHA256, hashed[:], signature)
 }

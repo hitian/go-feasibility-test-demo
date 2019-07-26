@@ -68,6 +68,24 @@ func TestCryptoKeyGenerate(t *testing.T) {
 	_, err = EncryptWithPublicKey([]byte(overSizeMessage), publicKeyString)
 	assert.NotNil(err, "encrypt overSizeMessage with public key string should fail")
 
+	signTestKey, _ := CreateNewKey(1024)
+	messageNeedToSign := []byte("message need to sign")
+
+	sign, err := signTestKey.Sign(messageNeedToSign)
+	assert.Nil(err, "sign with private key should ok")
+
+	err = SignVerifyWithPublicKey(messageNeedToSign, sign, signTestKey.ExportPublicKey())
+	assert.Nil(err, "sign verify should ok")
+
+	err = SignVerifyWithPublicKey(messageNeedToSign[1:], sign, signTestKey.ExportPublicKey())
+	assert.NotNil(err, "changed input sign verify should fail")
+
+	err = SignVerifyWithPublicKey(messageNeedToSign[1:], sign, "MTIzNA==")
+	assert.NotNil(err, "sign verify with wrong format public key should fail")
+
+	smallSignTestKey, _ := CreateNewKey(128)
+	_, err = smallSignTestKey.Sign(messageNeedToSign)
+	assert.NotNil(err, "sign with a not enough length key should fail")
 }
 
 func TestImportExport(t *testing.T) {
